@@ -297,6 +297,11 @@ func resourceEnvironment() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
+			"worker_replacement_strategy": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
 		},
 
 		CustomizeDiff: customdiff.Sequence(
@@ -412,6 +417,10 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 		input.WeeklyMaintenanceWindowStart = aws.String(v.(string))
 	}
 
+	if v, ok := d.GetOk("worker_replacement_strategy"); ok {
+		input.PluginsS3ObjectVersion = aws.String(v.(string))
+	}
+
 	/*
 		Execution roles created just before the MWAA Environment may result in ValidationExceptions
 		due to IAM permission propagation delays.
@@ -490,6 +499,7 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta a
 	d.Set("webserver_url", environment.WebserverUrl)
 	d.Set("webserver_vpc_endpoint_service", environment.WebserverVpcEndpointService)
 	d.Set("weekly_maintenance_window_start", environment.WeeklyMaintenanceWindowStart)
+	d.Set("worker_replacement_strategy", environment.WorkerReplacementStrategy)
 
 	setTagsOut(ctx, environment.Tags)
 
@@ -593,6 +603,10 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 
 		if d.HasChange("weekly_maintenance_window_start") {
 			input.WeeklyMaintenanceWindowStart = aws.String(d.Get("weekly_maintenance_window_start").(string))
+		}
+
+		if d.HasChange("worker_replacement_strategy") {
+			input.WorkerReplacementStrategy = aws.String(d.Get("worker_replacement_strategy").(string))
 		}
 
 		_, err := conn.UpdateEnvironment(ctx, input)

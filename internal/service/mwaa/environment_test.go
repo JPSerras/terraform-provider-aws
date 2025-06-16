@@ -311,6 +311,7 @@ func TestAccMWAAEnvironment_full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "weekly_maintenance_window_start", "SAT:03:00"),
 					resource.TestCheckResourceAttr(resourceName, "tags.Name", rName),
 					resource.TestCheckResourceAttr(resourceName, "tags.Environment", "production"),
+					resource.TestCheckResourceAttr(resourceName, "worker_replacement_strategy", "GRACEFUL")
 				),
 			},
 			{
@@ -421,6 +422,7 @@ func TestAccMWAAEnvironment_customerVPCE(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "webserver_url"),
 					resource.TestCheckResourceAttrSet(resourceName, "weekly_maintenance_window_start"),
 					resource.TestCheckResourceAttr(resourceName, "endpoint_management", "CUSTOMER"),
+					resource.TestCheckResourceAttr(resourceName, "worker_replacement_strategy", "GRACEFUL"),
 				),
 			},
 			{
@@ -751,6 +753,8 @@ resource "aws_mwaa_environment" "test" {
     subnet_ids         = aws_subnet.private[*].id
   }
 
+	worker_replacement_strategy = "GRACEFUL"
+
   source_bucket_arn = aws_s3_bucket.test.arn
 }
 `, rName))
@@ -896,6 +900,8 @@ resource "aws_mwaa_environment" "test" {
     security_group_ids = [aws_security_group.test.id]
     subnet_ids         = aws_subnet.private[*].id
   }
+
+	worker_replacement_strategy = "GRACEFUL"
 
   plugins_s3_path                 = aws_s3_object.plugins.key
   requirements_s3_path            = aws_s3_object.requirements.key
