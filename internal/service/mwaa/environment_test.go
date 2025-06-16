@@ -311,7 +311,6 @@ func TestAccMWAAEnvironment_full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "weekly_maintenance_window_start", "SAT:03:00"),
 					resource.TestCheckResourceAttr(resourceName, "tags.Name", rName),
 					resource.TestCheckResourceAttr(resourceName, "tags.Environment", "production"),
-					resource.TestCheckResourceAttr(resourceName, "worker_replacement_strategy", "GRACEFUL")
 				),
 			},
 			{
@@ -422,7 +421,6 @@ func TestAccMWAAEnvironment_customerVPCE(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "webserver_url"),
 					resource.TestCheckResourceAttrSet(resourceName, "weekly_maintenance_window_start"),
 					resource.TestCheckResourceAttr(resourceName, "endpoint_management", "CUSTOMER"),
-					resource.TestCheckResourceAttr(resourceName, "worker_replacement_strategy", "GRACEFUL"),
 				),
 			},
 			{
@@ -468,6 +466,47 @@ func TestAccMWAAEnvironment_updateAirflowVersionMinor(t *testing.T) {
 					testAccCheckEnvironmentExists(ctx, resourceName, &environment2),
 					testAccCheckEnvironmentNotRecreated(&environment2, &environment1),
 					resource.TestCheckResourceAttr(resourceName, "airflow_version", "2.5.1"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccMWAAEnvironment_updateAirflowWorkerReplacementStrategy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	ctx := acctest.Context(t)
+	var environment1, environment2 awstypes.Environment
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_mwaa_environment.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.MWAAServiceID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckEnvironmentDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccEnvironmentConfig_airflowWorkerReplacementStrategy(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckEnvironmentExists(ctx, resourceName, &environment1),
+					resource.TestCheckResourceAttr(resourceName, "worker_replacement_strategy", "FORCED"),
+				),
+				ExpectNonEmptyPlan: true,
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccEnvironmentConfig_airflowWorkerReplacementStrategy(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckEnvironmentExists(ctx, resourceName, &environment2),
+					testAccCheckEnvironmentNotRecreated(&environment2, &environment1),
+					resource.TestCheckResourceAttr(resourceName, "worker_replacement_strategy", "GRACEFUL"),
 				),
 			},
 		},
@@ -753,8 +792,6 @@ resource "aws_mwaa_environment" "test" {
     subnet_ids         = aws_subnet.private[*].id
   }
 
-	worker_replacement_strategy = "GRACEFUL"
-
   source_bucket_arn = aws_s3_bucket.test.arn
 }
 `, rName))
@@ -901,8 +938,6 @@ resource "aws_mwaa_environment" "test" {
     subnet_ids         = aws_subnet.private[*].id
   }
 
-	worker_replacement_strategy = "GRACEFUL"
-
   plugins_s3_path                 = aws_s3_object.plugins.key
   requirements_s3_path            = aws_s3_object.requirements.key
   schedulers                      = 2
@@ -1016,8 +1051,26 @@ resource "aws_mwaa_environment" "test" {
   }
 
   source_bucket_arn = aws_s3_bucket.test.arn
-
   airflow_version = %[2]q
 }
 `, rName, airflowVersion))
+}
+
+func testAccEnvironmentConfig_airflowWorkerReplacementStrategy(rName string) string {
+	return acctest.ConfigCompose(testAccEnvironmentConfig_base(rName), fmt.Sprintf(`
+resource "aws_mwaa_environment" "test" {
+  dag_s3_path        = aws_s3_object.dags.key
+  execution_role_arn = aws_iam_role.test.arn
+  name               = %[1]q
+
+	worker_replacement_strategy = "GRACEFUL"
+  network_configuration {
+    security_group_ids = [aws_security_group.test.id]
+    subnet_ids         = aws_subnet.private[*].id
+  }
+
+  source_bucket_arn = aws_s3_bucket.test.arn
+  airflow_version = "2.4.3"
+}
+`, rName))
 }
